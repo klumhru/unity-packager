@@ -150,8 +150,8 @@ func ExtractLegalFilesFromZip(zipPath, destDir string) error {
 
 		destPath := filepath.Join(destDir, filepath.Base(filepath.Clean(f.Name)))
 		// Guard against path traversal
-		if !strings.HasPrefix(filepath.Clean(destPath), filepath.Clean(destDir)+string(os.PathSeparator)) &&
-			filepath.Clean(destPath) != filepath.Clean(destDir) {
+		rel, err := filepath.Rel(filepath.Clean(destDir), filepath.Clean(destPath))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 			continue
 		}
 

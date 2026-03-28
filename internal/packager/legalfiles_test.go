@@ -218,7 +218,10 @@ func TestExtractLegalFilesFromZip(t *testing.T) {
 
 	// Nested LICENSE (under lib/netstandard2.0/) should not be extracted
 	// Verify only the root-level files exist by checking total file count
-	entries, _ := os.ReadDir(destDir)
+	entries, err := os.ReadDir(destDir)
+	if err != nil {
+		t.Fatalf("failed to read destination directory: %v", err)
+	}
 	if len(entries) != 2 {
 		names := make([]string, len(entries))
 		for i, e := range entries {

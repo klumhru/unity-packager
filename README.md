@@ -161,6 +161,67 @@ The tool auto-detects whether the archive contains a Unity package (has `package
 
 Archive format is detected from the URL extension (`.zip`, `.tar.gz`, `.tgz`) or by inspecting file magic bytes.
 
+#### Firebase Unity SDK example
+
+Google publishes Firebase Unity packages as `.tgz` archives at `dl.google.com`. Each Firebase component is a separate archive that already contains a Unity `package.json`, so they work directly with the `archive` type:
+
+```json
+{
+  "packages": [
+    {
+      "name": "com.google.firebase.app",
+      "type": "archive",
+      "url": "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.9.0.tgz"
+    },
+    {
+      "name": "com.google.firebase.auth",
+      "type": "archive",
+      "url": "https://dl.google.com/games/registry/unity/com.google.firebase.auth/com.google.firebase.auth-13.9.0.tgz"
+    },
+    {
+      "name": "com.google.firebase.firestore",
+      "type": "archive",
+      "url": "https://dl.google.com/games/registry/unity/com.google.firebase.firestore/com.google.firebase.firestore-13.9.0.tgz"
+    }
+  ]
+}
+```
+
+The URL pattern for all Firebase components is:
+
+```
+https://dl.google.com/games/registry/unity/{package-name}/{package-name}-{version}.tgz
+```
+
+A full list of available packages and versions can be found at the [Google Unity archive](https://developers.google.com/unity/archive).
+
+#### Raw source archive example
+
+For archives that don't contain a Unity `package.json`, the tool generates one and places source files under `Runtime/` with an `.asmdef`:
+
+```json
+{
+  "name": "com.example.sdk",
+  "type": "archive",
+  "url": "https://example.com/releases/sdk-v2.0.0.zip",
+  "path": "sdk-v2.0.0/src",
+  "version": "2.0.0",
+  "description": "Example SDK for Unity",
+  "dependencies": ["com.google.protobuf"],
+  "exclude": ["**/*Test*.cs", "**/*.csproj"]
+}
+```
+
+Output structure:
+
+```
+Packages/com.example.sdk/
+├── package.json              (generated)
+├── Runtime/
+│   ├── com.example.sdk.asmdef  (generated, rootNamespace inferred from .cs files)
+│   └── ... (source files)
+```
+
 ## Features
 
 - **Meta file generation** — creates Unity `.meta` files with deterministic GUIDs (based on package name + relative path), so re-running the tool doesn't cause unnecessary git changes

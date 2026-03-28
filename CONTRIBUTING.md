@@ -21,7 +21,7 @@ go test ./...            # unit tests
 go test -tags=integration -timeout 5m ./...  # integration tests (requires network)
 ```
 
-Integration tests download real packages from GitHub and NuGet, so they need network access and take longer to run. They're behind the `integration` build tag.
+Integration tests download real packages from GitHub, NuGet, and HTTP archives, so they need network access and take longer to run. They're behind the `integration` build tag.
 
 ## Pull Requests
 
@@ -46,7 +46,7 @@ Open an issue with:
 
 - What you expected to happen
 - What actually happened
-- Your `upstream-packages.json` config (redact private URLs if needed)
+- Your `Packages/upstream-packages.json` config (or the file specified via `-config`; redact private URLs if needed)
 - Output from running with `-verbose`
 
 ## License

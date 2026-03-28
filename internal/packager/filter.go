@@ -48,6 +48,11 @@ func CopyFiltered(srcDir, destDir string, patterns []string) error {
 			return nil
 		}
 
+		// Skip Unity-ignored directories (names ending with ~, e.g., Tests~, Documentation~)
+		if info.IsDir() && strings.HasSuffix(info.Name(), "~") {
+			return filepath.SkipDir
+		}
+
 		if ShouldExclude(relPath, patterns) {
 			if info.IsDir() {
 				return filepath.SkipDir

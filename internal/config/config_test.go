@@ -31,6 +31,11 @@ func TestLoadValidConfig(t *testing.T) {
 				"type": "nuget",
 				"nugetId": "Example.Lib",
 				"nugetVersion": "2.0.0"
+			},
+			{
+				"name": "com.example.archive",
+				"type": "archive",
+				"url": "https://example.com/sdk.zip"
 			}
 		]
 	}`)
@@ -41,8 +46,8 @@ func TestLoadValidConfig(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if len(cfg.Packages) != 3 {
-		t.Fatalf("expected 3 packages, got %d", len(cfg.Packages))
+	if len(cfg.Packages) != 4 {
+		t.Fatalf("expected 4 packages, got %d", len(cfg.Packages))
 	}
 
 	if cfg.Packages[0].Type != GitUnity {
@@ -53,6 +58,9 @@ func TestLoadValidConfig(t *testing.T) {
 	}
 	if cfg.Packages[2].Type != NuGet {
 		t.Errorf("expected type nuget, got %s", cfg.Packages[2].Type)
+	}
+	if cfg.Packages[3].Type != Archive {
+		t.Errorf("expected type archive, got %s", cfg.Packages[3].Type)
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -113,6 +121,13 @@ func TestValidateErrors(t *testing.T) {
 				{Name: "a", Type: NuGet, NuGetID: "Foo"},
 			}},
 			wantErr: "nugetVersion is required",
+		},
+		{
+			name: "archive missing url",
+			config: Config{Packages: []PackageSpec{
+				{Name: "a", Type: Archive},
+			}},
+			wantErr: "url is required",
 		},
 		{
 			name: "unknown type",

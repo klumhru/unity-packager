@@ -76,6 +76,29 @@ func (c *Cache) NuGetStorePath(id, version string) string {
 	return filepath.Join(dir, fmt.Sprintf("%s.%s.nupkg", id, version))
 }
 
+// ArchiveDir returns the cached extracted directory for an archive URL.
+// Returns empty string if not cached.
+func (c *Cache) ArchiveDir(url string) string {
+	if !c.enabled {
+		return ""
+	}
+	dir := filepath.Join(c.baseDir, "archive", cacheKey(url))
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		return dir
+	}
+	return ""
+}
+
+// ArchiveStoreDir returns the directory where an extracted archive should be stored in the cache.
+func (c *Cache) ArchiveStoreDir(url string) string {
+	if !c.enabled {
+		return ""
+	}
+	dir := filepath.Join(c.baseDir, "archive", cacheKey(url))
+	os.MkdirAll(dir, 0755)
+	return dir
+}
+
 func cacheKey(parts ...string) string {
 	h := sha256.New()
 	for _, p := range parts {

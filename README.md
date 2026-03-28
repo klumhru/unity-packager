@@ -1,6 +1,6 @@
 # unity-packager
 
-A CLI tool that downloads upstream packages from git repositories and NuGet and packages them for use in Unity projects.
+A CLI tool that downloads upstream packages from git repositories, NuGet, and HTTP archives (zip/tar.gz/tgz) and packages them for use in Unity projects.
 
 ## Install
 
@@ -71,6 +71,13 @@ Create `Packages/upstream-packages.json` in your Unity project:
       "nugetVersion": "2.46.6",
       "nugetFramework": "netstandard2.0",
       "dependencies": ["com.google.protobuf"]
+    },
+    {
+      "name": "com.google.firebase.auth",
+      "type": "archive",
+      "url": "https://dl.google.com/firebase/sdk/unity/firebase_unity_sdk_12.7.0.zip",
+      "path": "firebase_unity_sdk/FirebaseAuth.unitypackage",
+      "exclude": ["Documentation~/**"]
     }
   ]
 }
@@ -137,6 +144,24 @@ Packages/com.example.nuget-lib/
 │   ├── Example.dll
 │   └── ...
 ```
+
+### `archive`
+
+For upstream packages distributed as HTTP archives (zip, tar.gz, tgz). Useful for packages like the Firebase Unity SDK that are distributed as downloadable archives rather than via git or NuGet.
+
+The tool auto-detects whether the archive contains a Unity package (has `package.json`) or raw source, and handles it accordingly. Archives with a single top-level directory are automatically unwrapped.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Unity package name |
+| `url` | yes | HTTP URL to the archive file |
+| `path` | no | Subdirectory within the archive to use |
+| `version` | no | Version for generated `package.json` (raw mode only) |
+| `description` | no | Description for generated `package.json` (raw mode only) |
+| `dependencies` | no | List of other package names |
+| `exclude` | no | Glob patterns to exclude |
+
+Archive format is detected from the URL extension (`.zip`, `.tar.gz`, `.tgz`) or by inspecting file magic bytes.
 
 ## Features
 

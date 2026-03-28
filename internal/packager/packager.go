@@ -83,6 +83,8 @@ func (p *Packager) processPackage(spec config.PackageSpec) error {
 		return p.processGitRaw(spec)
 	case config.NuGet:
 		return p.processNuGet(spec)
+	case config.Archive:
+		return p.processArchive(spec)
 	default:
 		return fmt.Errorf("unknown package type %q", spec.Type)
 	}

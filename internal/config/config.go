@@ -12,6 +12,7 @@ const (
 	GitUnity PackageType = "git-unity"
 	GitRaw   PackageType = "git-raw"
 	NuGet    PackageType = "nuget"
+	Archive  PackageType = "archive"
 )
 
 type PackageSpec struct {
@@ -70,6 +71,10 @@ func (c *Config) Validate() error {
 			if pkg.Ref == "" {
 				return fmt.Errorf("package %q: ref is required for type %s", pkg.Name, pkg.Type)
 			}
+		case Archive:
+			if pkg.URL == "" {
+				return fmt.Errorf("package %q: url is required for type archive", pkg.Name)
+			}
 		case NuGet:
 			if pkg.NuGetID == "" {
 				return fmt.Errorf("package %q: nugetId is required for type nuget", pkg.Name)
@@ -78,7 +83,7 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("package %q: nugetVersion is required for type nuget", pkg.Name)
 			}
 		default:
-			return fmt.Errorf("package %q: unknown type %q (must be git-unity, git-raw, or nuget)", pkg.Name, pkg.Type)
+			return fmt.Errorf("package %q: unknown type %q (must be git-unity, git-raw, nuget, or archive)", pkg.Name, pkg.Type)
 		}
 
 		// Validate dependencies reference known package names

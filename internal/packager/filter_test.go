@@ -44,7 +44,7 @@ func TestCopyFiltered(t *testing.T) {
 	os.WriteFile(filepath.Join(srcDir, "Tests~", "FooTest.cs"), []byte("class FooTest {}"), 0644)
 	os.WriteFile(filepath.Join(srcDir, "README.md"), []byte("# readme"), 0644)
 
-	err := CopyFiltered(srcDir, destDir, []string{"Tests~/**", "*.md"})
+	err := CopyFiltered(srcDir, destDir, []string{"*.md"})
 	if err != nil {
 		t.Fatalf("CopyFiltered: %v", err)
 	}
@@ -54,14 +54,47 @@ func TestCopyFiltered(t *testing.T) {
 		t.Error("Runtime/Foo.cs should be copied")
 	}
 
-	// Tests~ should be excluded
+	// Tests~ should be excluded automatically (tilde dir)
 	if _, err := os.Stat(filepath.Join(destDir, "Tests~", "FooTest.cs")); !os.IsNotExist(err) {
-		t.Error("Tests~/FooTest.cs should be excluded")
+		t.Error("Tests~/FooTest.cs should be excluded (tilde directory)")
 	}
 
-	// README.md should be excluded
+	// README.md should be excluded by pattern
 	if _, err := os.Stat(filepath.Join(destDir, "README.md")); !os.IsNotExist(err) {
 		t.Error("README.md should be excluded")
+	}
+}
+
+func TestCopyFiltered_SkipsTildeDirs(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create various tilde directories
+	os.MkdirAll(filepath.Join(srcDir, "Tests~"), 0755)
+	os.MkdirAll(filepath.Join(srcDir, "Documentation~"), 0755)
+	os.MkdirAll(filepath.Join(srcDir, "Samples~"), 0755)
+	os.MkdirAll(filepath.Join(srcDir, "Runtime"), 0755)
+	os.WriteFile(filepath.Join(srcDir, "Tests~", "Test.cs"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(srcDir, "Documentation~", "index.md"), []byte("docs"), 0644)
+	os.WriteFile(filepath.Join(srcDir, "Samples~", "Example.cs"), []byte("sample"), 0644)
+	os.WriteFile(filepath.Join(srcDir, "Runtime", "Lib.cs"), []byte("lib"), 0644)
+
+	// No exclude patterns — tilde dirs should still be skipped
+	err := CopyFiltered(srcDir, destDir, nil)
+	if err != nil {
+		t.Fatalf("CopyFiltered: %v", err)
+	}
+
+	// Runtime should be copied
+	if _, err := os.Stat(filepath.Join(destDir, "Runtime", "Lib.cs")); os.IsNotExist(err) {
+		t.Error("Runtime/Lib.cs should be copied")
+	}
+
+	// All tilde dirs should be skipped
+	for _, dir := range []string{"Tests~", "Documentation~", "Samples~"} {
+		if _, err := os.Stat(filepath.Join(destDir, dir)); !os.IsNotExist(err) {
+			t.Errorf("%s should not be copied (Unity-ignored tilde directory)", dir)
+		}
 	}
 }
 

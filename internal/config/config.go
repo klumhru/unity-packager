@@ -27,7 +27,8 @@ type PackageSpec struct {
 	NuGetID        string      `json:"nugetId,omitempty"`
 	NuGetVersion   string      `json:"nugetVersion,omitempty"`
 	NuGetFramework string      `json:"nugetFramework,omitempty"`
-	Exclude        []string    `json:"exclude,omitempty"`
+	Exclude          []string `json:"exclude,omitempty"`
+	SuppressWarnings []string `json:"suppressWarnings,omitempty"`
 }
 
 type Config struct {

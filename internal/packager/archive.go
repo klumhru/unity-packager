@@ -42,6 +42,10 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 		if err := CopyFiltered(srcDir, destDir, spec.Exclude); err != nil {
 			return fmt.Errorf("copying archive package %q: %w", spec.Name, err)
 		}
+
+		if err := unity.WriteCscRspForAsmdefs(destDir, spec.SuppressWarnings); err != nil {
+			return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
+		}
 	} else {
 		// Raw package — copy into Runtime/, generate package.json + asmdef (like git-raw)
 		runtimeDir := filepath.Join(destDir, "Runtime")
@@ -66,6 +70,10 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 		asmdef := unity.NewAsmDef(spec.Name, rootNamespace, spec.Dependencies)
 		if err := unity.WriteAsmDef(runtimeDir, spec.Name+".asmdef", asmdef); err != nil {
 			return fmt.Errorf("writing asmdef for %q: %w", spec.Name, err)
+		}
+
+		if err := unity.WriteCscRsp(runtimeDir, spec.SuppressWarnings); err != nil {
+			return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
 		}
 	}
 

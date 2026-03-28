@@ -228,6 +228,43 @@ Packages/com.example.sdk/
 - **Download caching** — upstream packages are cached in `~/.cache/unity-packager/` to avoid re-downloading on subsequent runs
 - **File exclusion** — glob patterns with `**` support for filtering out tests, docs, or other unwanted files
 - **Asmdef generation** — `git-raw` packages get an `.asmdef` with the root namespace inferred from the C# source files, and references populated from the `dependencies` list
+- **Warning suppression** — per-package `csc.rsp` generation to suppress specific C# compiler warnings (see below)
+
+## Suppressing Compiler Warnings
+
+Upstream packages often produce C# compiler warnings (e.g., CS0618 for obsolete API usage) that you can't fix yourself. The `suppressWarnings` field generates a `csc.rsp` file next to each `.asmdef` in the package, telling the compiler to suppress those warnings for that assembly only.
+
+```json
+{
+  "name": "com.google.protobuf",
+  "type": "git-raw",
+  "url": "https://github.com/protocolbuffers/protobuf.git",
+  "ref": "v3.27.1",
+  "path": "csharp/src/Google.Protobuf",
+  "version": "3.27.1",
+  "suppressWarnings": ["0618", "0649"]
+}
+```
+
+This generates a `csc.rsp` containing:
+
+```
+-nowarn:0618,0649
+```
+
+The field works with all package types:
+
+- **`git-raw` / `archive` (raw mode)**: `csc.rsp` is placed in `Runtime/` next to the generated `.asmdef`
+- **`git-unity` / `archive` (unity mode)**: discovers all existing `.asmdef` files in the package and places a `csc.rsp` next to each one
+
+Common warnings to suppress in upstream packages:
+
+| Warning | Description |
+|---------|-------------|
+| `0618`  | Use of obsolete member |
+| `0649`  | Field is never assigned to |
+| `0169`  | Field is never used |
+| `0414`  | Private field assigned but never used |
 
 ## Requirements
 

@@ -73,11 +73,9 @@ Create `Packages/upstream-packages.json` in your Unity project:
       "dependencies": ["com.google.protobuf"]
     },
     {
-      "name": "com.google.firebase.auth",
+      "name": "com.google.firebase.app",
       "type": "archive",
-      "url": "https://dl.google.com/firebase/sdk/unity/firebase_unity_sdk_12.7.0.zip",
-      "path": "firebase_unity_sdk/FirebaseAuth.unitypackage",
-      "exclude": ["Documentation~/**"]
+      "url": "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.9.0.tgz"
     }
   ]
 }

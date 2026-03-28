@@ -25,6 +25,11 @@
       "nugetVersion": "2.46.6",
       "nugetFramework": "netstandard2.0",
       "dependencies": ["com.google.protobuf"]
+    },
+    {
+      "name": "com.google.firebase.app",
+      "type": "archive",
+      "url": "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.9.0.tgz"
     }
   ]
 }

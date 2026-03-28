@@ -156,3 +156,69 @@ func TestIntegration_NuGet_GrpcCore(t *testing.T) {
 		t.Error("package.json.meta should exist")
 	}
 }
+
+func TestIntegration_Archive_FirebaseApp(t *testing.T) {
+	projectDir := t.TempDir()
+	packagesDir := filepath.Join(projectDir, "Packages")
+	os.MkdirAll(packagesDir, 0755)
+
+	p := New(projectDir, Options{Verbose: true, Clean: true, NoCache: true})
+
+	cfg := &config.Config{
+		Packages: []config.PackageSpec{
+			{
+				Name: "com.google.firebase.app",
+				Type: config.Archive,
+				URL:  "https://dl.google.com/games/registry/unity/com.google.firebase.app/com.google.firebase.app-13.9.0.tgz",
+			},
+		},
+	}
+
+	if err := p.Run(cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	destDir := filepath.Join(packagesDir, "com.google.firebase.app")
+
+	// package.json should exist (from upstream — this is a Unity package)
+	pkgJSON := filepath.Join(destDir, "package.json")
+	if _, err := os.Stat(pkgJSON); os.IsNotExist(err) {
+		t.Fatal("package.json should exist")
+	}
+
+	// Verify it's the upstream package.json, not a generated one
+	data, err := os.ReadFile(pkgJSON)
+	if err != nil {
+		t.Fatalf("reading package.json: %v", err)
+	}
+	if !containsBytes(data, []byte("Firebase App (Core)")) {
+		t.Error("package.json should contain upstream Firebase displayName")
+	}
+	if !containsBytes(data, []byte("13.9.0")) {
+		t.Error("package.json should contain version 13.9.0")
+	}
+
+	// Plugins directory should exist (Firebase ships native plugins)
+	if _, err := os.Stat(filepath.Join(destDir, "Plugins")); os.IsNotExist(err) {
+		t.Error("Plugins directory should exist")
+	}
+
+	// Meta files should be generated
+	if _, err := os.Stat(filepath.Join(destDir, "package.json.meta")); os.IsNotExist(err) {
+		t.Error("package.json.meta should exist")
+	}
+
+	// Firebase directory should exist (contains editor scripts)
+	if _, err := os.Stat(filepath.Join(destDir, "Firebase")); os.IsNotExist(err) {
+		t.Error("Firebase directory should exist")
+	}
+}
+
+func containsBytes(data, sub []byte) bool {
+	for i := 0; i+len(sub) <= len(data); i++ {
+		if string(data[i:i+len(sub)]) == string(sub) {
+			return true
+		}
+	}
+	return false
+}

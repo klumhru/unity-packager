@@ -11,6 +11,14 @@ unity-packager is a Go CLI tool that downloads upstream packages (git repos, NuG
 - **nuget**: NuGet packages (download `.nupkg`, extract DLLs into `Plugins/`)
 - **archive**: HTTP zip/tar.gz/tgz archives (e.g., Firebase Unity SDK); auto-detects Unity vs raw
 
+## PR and Merge Policy
+
+Before merging any PR, always wait for:
+1. CI checks to pass
+2. All Copilot review comments to be addressed
+
+Do not merge until both are satisfied, unless the user explicitly instructs you to skip this.
+
 ## Build and Test
 
 ```bash

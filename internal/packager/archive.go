@@ -43,6 +43,10 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 			return fmt.Errorf("copying archive package %q: %w", spec.Name, err)
 		}
 
+		if err := CopyLegalFiles(srcDir, destDir); err != nil {
+			return fmt.Errorf("copying legal files for %q: %w", spec.Name, err)
+		}
+
 		if err := unity.WriteCscRspForAsmdefs(destDir, spec.SuppressWarnings); err != nil {
 			return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
 		}
@@ -74,6 +78,10 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 
 		if err := unity.WriteCscRsp(runtimeDir, spec.SuppressWarnings); err != nil {
 			return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
+		}
+
+		if err := CopyLegalFiles(srcDir, destDir); err != nil {
+			return fmt.Errorf("copying legal files for %q: %w", spec.Name, err)
 		}
 	}
 

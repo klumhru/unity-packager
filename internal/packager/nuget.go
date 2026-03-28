@@ -35,6 +35,11 @@ func (p *Packager) processNuGet(spec config.PackageSpec) error {
 		return fmt.Errorf("extracting NuGet package %q: %w", spec.NuGetID, err)
 	}
 
+	// Extract license/readme from nupkg root
+	if err := ExtractLegalFilesFromZip(nupkgPath, destDir); err != nil {
+		return fmt.Errorf("extracting legal files for %q: %w", spec.Name, err)
+	}
+
 	// Generate package.json
 	version := spec.NuGetVersion
 	description := fmt.Sprintf("NuGet package %s v%s", spec.NuGetID, spec.NuGetVersion)

@@ -49,14 +49,15 @@ func (p *Packager) processGitUnity(spec config.PackageSpec) error {
 }
 
 func (p *Packager) processGitRaw(spec config.PackageSpec) error {
-	srcDir, err := p.cloneOrCache(spec.URL, spec.Ref)
+	cloneDir, err := p.cloneOrCache(spec.URL, spec.Ref)
 	if err != nil {
 		return err
 	}
 
 	// If a subpath is specified, use it
+	srcDir := cloneDir
 	if spec.Path != "" {
-		srcDir = filepath.Join(srcDir, spec.Path)
+		srcDir = filepath.Join(cloneDir, spec.Path)
 	}
 
 	destDir := filepath.Join(p.packagesDir, spec.Name)
@@ -93,8 +94,8 @@ func (p *Packager) processGitRaw(spec config.PackageSpec) error {
 		return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
 	}
 
-	// Copy license/readme to package root
-	if err := CopyLegalFiles(srcDir, destDir); err != nil {
+	// Copy license/readme to package root, searching upward to repo root
+	if err := CopyLegalFilesSearchingUp(srcDir, cloneDir, destDir); err != nil {
 		return fmt.Errorf("copying legal files for %q: %w", spec.Name, err)
 	}
 

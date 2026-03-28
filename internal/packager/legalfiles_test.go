@@ -111,6 +111,63 @@ func TestCopyLegalFiles_SurvivesExcludePatterns(t *testing.T) {
 	}
 }
 
+func TestCopyLegalFilesSearchingUp(t *testing.T) {
+	// Simulate a repo with LICENSE at root and source in a subpath
+	repoRoot := t.TempDir()
+	subPath := filepath.Join(repoRoot, "csharp", "src", "MyLib")
+	os.MkdirAll(subPath, 0755)
+
+	// License at repo root only
+	os.WriteFile(filepath.Join(repoRoot, "LICENSE"), []byte("Apache 2.0"), 0644)
+	// README at subpath level
+	os.WriteFile(filepath.Join(subPath, "README.md"), []byte("lib readme"), 0644)
+	// Source file
+	os.WriteFile(filepath.Join(subPath, "Foo.cs"), []byte("class Foo {}"), 0644)
+
+	destDir := t.TempDir()
+	if err := CopyLegalFilesSearchingUp(subPath, repoRoot, destDir); err != nil {
+		t.Fatalf("CopyLegalFilesSearchingUp: %v", err)
+	}
+
+	// LICENSE should be found from repo root
+	data, err := os.ReadFile(filepath.Join(destDir, "LICENSE"))
+	if err != nil {
+		t.Fatal("LICENSE should be copied from repo root")
+	}
+	if string(data) != "Apache 2.0" {
+		t.Errorf("LICENSE content: got %q", string(data))
+	}
+
+	// README.md should be found from subpath (closer takes precedence)
+	data, err = os.ReadFile(filepath.Join(destDir, "README.md"))
+	if err != nil {
+		t.Fatal("README.md should be copied from subpath")
+	}
+	if string(data) != "lib readme" {
+		t.Errorf("README.md content: got %q", string(data))
+	}
+}
+
+func TestCopyLegalFilesSearchingUp_CloserTakesPrecedence(t *testing.T) {
+	repoRoot := t.TempDir()
+	subPath := filepath.Join(repoRoot, "src")
+	os.MkdirAll(subPath, 0755)
+
+	// LICENSE at both levels
+	os.WriteFile(filepath.Join(repoRoot, "LICENSE"), []byte("root license"), 0644)
+	os.WriteFile(filepath.Join(subPath, "LICENSE"), []byte("sub license"), 0644)
+
+	destDir := t.TempDir()
+	if err := CopyLegalFilesSearchingUp(subPath, repoRoot, destDir); err != nil {
+		t.Fatalf("CopyLegalFilesSearchingUp: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(destDir, "LICENSE"))
+	if string(data) != "sub license" {
+		t.Errorf("closer LICENSE should take precedence, got %q", string(data))
+	}
+}
+
 func TestExtractLegalFilesFromZip(t *testing.T) {
 	// Create a zip with legal files at root and in subdirs
 	zipPath := filepath.Join(t.TempDir(), "test.zip")

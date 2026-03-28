@@ -23,6 +23,7 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 
 	// If a subpath is specified, use it directly; otherwise unwrap single top-level dirs
 	// (common in archives like "firebase-unity-sdk-12.0.0/...")
+	archiveRoot := extractDir
 	srcDir := extractDir
 	if spec.Path != "" {
 		srcDir = filepath.Join(extractDir, spec.Path)
@@ -31,6 +32,7 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 		}
 	} else {
 		srcDir = unwrapSingleDir(extractDir)
+		archiveRoot = srcDir
 	}
 
 	destDir := filepath.Join(p.packagesDir, spec.Name)
@@ -80,7 +82,7 @@ func (p *Packager) processArchive(spec config.PackageSpec) error {
 			return fmt.Errorf("writing csc.rsp for %q: %w", spec.Name, err)
 		}
 
-		if err := CopyLegalFiles(srcDir, destDir); err != nil {
+		if err := CopyLegalFilesSearchingUp(srcDir, archiveRoot, destDir); err != nil {
 			return fmt.Errorf("copying legal files for %q: %w", spec.Name, err)
 		}
 	}

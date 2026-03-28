@@ -81,6 +81,45 @@ func CopyLegalFiles(srcDir, destDir string) error {
 	return nil
 }
 
+// CopyLegalFilesSearchingUp copies legal files from srcDir to destDir, searching
+// upward through parent directories up to (and including) rootDir. This ensures
+// license files at a repository root are found even when a subpath is used.
+// Files found closer to srcDir take precedence over those found higher up.
+func CopyLegalFilesSearchingUp(srcDir, rootDir, destDir string) error {
+	srcAbs, err := filepath.Abs(srcDir)
+	if err != nil {
+		return err
+	}
+	rootAbs, err := filepath.Abs(rootDir)
+	if err != nil {
+		return err
+	}
+
+	// Collect directories from srcDir up to rootDir
+	var dirs []string
+	current := srcAbs
+	for {
+		dirs = append(dirs, current)
+		if current == rootAbs {
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+
+	// Search from closest to furthest — CopyLegalFiles won't overwrite existing files
+	for _, dir := range dirs {
+		if err := CopyLegalFiles(dir, destDir); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ExtractLegalFilesFromZip extracts license, readme, and notice files from a zip
 // archive's root to destDir. Used for nupkg files where these are at the archive root.
 func ExtractLegalFilesFromZip(zipPath, destDir string) error {

@@ -9,12 +9,13 @@ import (
 
 func TestIsLegalFile(t *testing.T) {
 	yes := []string{
-		"LICENSE", "LICENSE.md", "LICENSE.txt",
+		"LICENSE", "LICENSE.md", "LICENSE.txt", "LICENSE.rst",
 		"license", "License.md",
-		"LICENCE", "Licence.txt",
-		"README", "README.md", "Readme.txt",
-		"NOTICE", "NOTICE.md", "NOTICE.txt",
-		"ThirdPartyNotices.txt",
+		"LICENCE", "Licence.txt", "LICENCE.rst",
+		"README", "README.md", "Readme.txt", "README.rst",
+		"NOTICE", "NOTICE.md", "NOTICE.txt", "NOTICE.rst",
+		"ThirdPartyNotices.txt", "ThirdPartyNotices.md", "ThirdPartyNotices.rst",
+		"third-party-notices", "THIRD-PARTY-NOTICES.md",
 	}
 	for _, name := range yes {
 		if !isLegalFile(name) {
@@ -96,7 +97,9 @@ func TestCopyLegalFiles_SurvivesExcludePatterns(t *testing.T) {
 	os.WriteFile(filepath.Join(srcDir, "README.md"), []byte("readme"), 0644)
 
 	// CopyFiltered with *.md excluded — README.md goes to Runtime but gets excluded
-	CopyFiltered(srcDir, runtimeDir, []string{"*.md"})
+	if err := CopyFiltered(srcDir, runtimeDir, []string{"*.md"}); err != nil {
+		t.Fatalf("CopyFiltered: %v", err)
+	}
 
 	// CopyLegalFiles to package root — should still pick up README.md and LICENSE
 	if err := CopyLegalFiles(srcDir, destDir); err != nil {
@@ -208,9 +211,22 @@ func TestExtractLegalFilesFromZip(t *testing.T) {
 		t.Errorf("README.md content: got %q", string(data))
 	}
 
-	// Nested LICENSE should NOT be extracted (not at zip root)
-	// Only root-level files in lib/ subdir shouldn't appear at destDir root
+	// Nested files should NOT be extracted (not at zip root)
 	if _, err := os.Stat(filepath.Join(destDir, "Foo.dll")); !os.IsNotExist(err) {
 		t.Error("Foo.dll should not be extracted")
+	}
+
+	// Nested LICENSE (under lib/netstandard2.0/) should not be extracted
+	// Verify only the root-level files exist by checking total file count
+	entries, err := os.ReadDir(destDir)
+	if err != nil {
+		t.Fatalf("failed to read destination directory: %v", err)
+	}
+	if len(entries) != 2 {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Errorf("expected exactly 2 files (LICENSE.txt, README.md), got %d: %v", len(entries), names)
 	}
 }

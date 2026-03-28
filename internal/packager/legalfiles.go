@@ -10,27 +10,30 @@ import (
 
 // legalFilePatterns are base names (case-insensitive) of files that should always
 // be included in the package root, regardless of exclude filters.
-var legalFilePatterns = []string{
+// legalFileBaseNames are the base names (without extension) of files that should
+// always be included. legalFileExtensions are the extensions to match. The full
+// pattern list is generated as the cross product of these two sets, plus bare names.
+var legalFileBaseNames = []string{
 	"license",
 	"licence",
-	"license.md",
-	"licence.md",
-	"license.txt",
-	"licence.txt",
-	"license.rst",
-	"licence.rst",
 	"readme",
-	"readme.md",
-	"readme.txt",
-	"readme.rst",
 	"notice",
-	"notice.md",
-	"notice.txt",
 	"third-party-notices",
-	"third-party-notices.md",
-	"third-party-notices.txt",
 	"thirdpartynotices",
-	"thirdpartynotices.txt",
+}
+
+var legalFileExtensions = []string{"", ".md", ".txt", ".rst"}
+
+var legalFilePatterns = generateLegalFilePatterns()
+
+func generateLegalFilePatterns() []string {
+	var patterns []string
+	for _, base := range legalFileBaseNames {
+		for _, ext := range legalFileExtensions {
+			patterns = append(patterns, base+ext)
+		}
+	}
+	return patterns
 }
 
 // isLegalFile returns true if the filename (base name only) matches a known
@@ -66,6 +69,8 @@ func CopyLegalFiles(srcDir, destDir string) error {
 		// Don't overwrite if already present (e.g., copied by CopyFiltered)
 		if _, err := os.Stat(destPath); err == nil {
 			continue
+		} else if !os.IsNotExist(err) {
+			return err
 		}
 
 		srcPath := filepath.Join(srcDir, entry.Name())
@@ -143,10 +148,18 @@ func ExtractLegalFilesFromZip(zipPath, destDir string) error {
 			continue
 		}
 
-		destPath := filepath.Join(destDir, f.Name)
+		destPath := filepath.Join(destDir, filepath.Base(filepath.Clean(f.Name)))
+		// Guard against path traversal
+		rel, err := filepath.Rel(filepath.Clean(destDir), filepath.Clean(destPath))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			continue
+		}
+
 		// Don't overwrite
 		if _, err := os.Stat(destPath); err == nil {
 			continue
+		} else if !os.IsNotExist(err) {
+			return err
 		}
 
 		rc, err := f.Open()

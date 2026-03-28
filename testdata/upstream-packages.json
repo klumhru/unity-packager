@@ -1,0 +1,30 @@
+{
+  "packages": [
+    {
+      "name": "jp.hadashikick.vcontainer",
+      "type": "git-unity",
+      "url": "https://github.com/hadashiA/VContainer.git",
+      "ref": "1.16.7",
+      "path": "VContainer/Assets/VContainer",
+      "exclude": ["Tests~/**"]
+    },
+    {
+      "name": "com.google.protobuf",
+      "type": "git-raw",
+      "url": "https://github.com/protocolbuffers/protobuf.git",
+      "ref": "v3.27.1",
+      "path": "csharp/src/Google.Protobuf",
+      "version": "3.27.1",
+      "description": "Google Protocol Buffers for C#",
+      "exclude": ["**/*Test*.cs", "**/*.csproj", "**/*.sln"]
+    },
+    {
+      "name": "com.grpc.core",
+      "type": "nuget",
+      "nugetId": "Grpc.Core",
+      "nugetVersion": "2.46.6",
+      "nugetFramework": "netstandard2.0",
+      "dependencies": ["com.google.protobuf"]
+    }
+  ]
+}

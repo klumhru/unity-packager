@@ -8,7 +8,7 @@ unity-packager is a Go CLI tool that downloads upstream packages (git repos, NuG
 
 - **git-unity**: Repos with an existing Unity `package.json` (clone + copy)
 - **git-raw**: Non-Unity repos (clone into `Runtime/`, generate `package.json` + `.asmdef`)
-- **nuget**: NuGet packages (download `.nupkg`, extract DLLs into `Plugins/`)
+- **nuget**: NuGet packages (download `.nupkg`, extract DLLs into `Plugins/`). Optionally resolves transitive deps (`nugetResolveDependencies: true`)
 - **archive**: HTTP zip/tar.gz/tgz archives (e.g., Firebase Unity SDK); auto-detects Unity vs raw
 
 ## PR and Merge Policy
@@ -40,6 +40,7 @@ internal/
     packager.go                 # Orchestrator — iterates packages, dispatches by type
     git.go                      # git-unity and git-raw handlers (shells out to git)
     nuget.go                    # NuGet handler (HTTP download + zip extract)
+    nuspec.go                   # .nuspec parsing + transitive dependency resolution
     archive.go                  # HTTP archive handler (zip/tar.gz/tgz)
     meta.go                     # Unity .meta file generation (deterministic GUIDs via MD5)
     filter.go                   # Glob-based file exclusion + filtered directory copy
@@ -66,6 +67,6 @@ The tool reads `Packages/upstream-packages.json`. See `testdata/upstream-package
 
 Package types produce different folder layouts:
 - `git-raw` → `Runtime/` folder with `.asmdef` (rootNamespace inferred from `.cs` files)
-- `nuget` → `Plugins/` folder with extracted DLLs
+- `nuget` → `Plugins/` folder with extracted DLLs (`editorOnly: true` routes them to `Editor/` instead, for editor-only libs like Roslyn; set `nugetResolveDependencies: true` to also pull transitive deps into the same folder; framework/runtime meta-packages and Unity-provided `System.*` facades — Memory, Buffers, Runtime.CompilerServices.Unsafe, Numerics.Vectors, Threading.Tasks.Extensions, ValueTuple — are skipped via `skipNuGetDependency`, versions resolve to the range lower bound)
 - `git-unity` → direct copy of upstream structure
 - `archive` → auto-detects: if archive contains `package.json`, copies directly (like git-unity); otherwise uses `Runtime/` + asmdef (like git-raw). Single top-level dirs are auto-unwrapped.

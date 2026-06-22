@@ -25,7 +25,13 @@ func (p *Packager) processNuGet(spec config.PackageSpec) error {
 	}
 
 	destDir := filepath.Join(p.packagesDir, spec.Name)
-	pluginsDir := filepath.Join(destDir, "Plugins")
+	// Editor-only assemblies go under Editor/ (a Unity special folder), everything
+	// else under Plugins/.
+	libDirName := "Plugins"
+	if spec.EditorOnly {
+		libDirName = "Editor"
+	}
+	pluginsDir := filepath.Join(destDir, libDirName)
 	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
 		return err
 	}
@@ -33,6 +39,14 @@ func (p *Packager) processNuGet(spec config.PackageSpec) error {
 	// Extract DLLs from the nupkg
 	if err := extractDLLs(nupkgPath, framework, pluginsDir, spec.Exclude); err != nil {
 		return fmt.Errorf("extracting NuGet package %q: %w", spec.NuGetID, err)
+	}
+
+	// Recursively resolve transitive NuGet dependencies into the same Plugins/ dir.
+	if spec.NuGetResolveDependencies {
+		visited := map[string]bool{strings.ToLower(spec.NuGetID): true}
+		if err := p.resolveNuGetDeps(nupkgPath, framework, pluginsDir, spec.Exclude, visited); err != nil {
+			return fmt.Errorf("resolving dependencies for %q: %w", spec.NuGetID, err)
+		}
 	}
 
 	// Extract license/readme from nupkg root
@@ -115,7 +129,23 @@ func extractDLLs(nupkgPath, framework, destDir string, excludePatterns []string)
 	}
 	defer r.Close()
 
-	prefix := fmt.Sprintf("lib/%s/", framework)
+	found, err := extractLibFolder(r, framework, destDir, excludePatterns)
+	if err != nil {
+		return err
+	}
+	if !found {
+		// List available frameworks for a helpful error
+		frameworks := availableFrameworks(r)
+		return fmt.Errorf("no files found for framework %q in nupkg (available: %s)",
+			framework, strings.Join(frameworks, ", "))
+	}
+	return nil
+}
+
+// extractLibFolder copies every non-excluded file under lib/<framework>/ into
+// destDir. It returns whether any file was extracted.
+func extractLibFolder(r *zip.ReadCloser, framework, destDir string, excludePatterns []string) (bool, error) {
+	prefix := fmt.Sprintf("lib/%s/", strings.ToLower(framework))
 	found := false
 
 	for _, f := range r.File {
@@ -124,7 +154,7 @@ func extractDLLs(nupkgPath, framework, destDir string, excludePatterns []string)
 		}
 
 		name := strings.ToLower(f.Name)
-		if !strings.HasPrefix(name, strings.ToLower(prefix)) {
+		if !strings.HasPrefix(name, prefix) {
 			continue
 		}
 
@@ -139,36 +169,119 @@ func extractDLLs(nupkgPath, framework, destDir string, excludePatterns []string)
 		destPath := filepath.Join(destDir, filepath.FromSlash(relName))
 
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return err
+			return found, err
 		}
 
 		rc, err := f.Open()
 		if err != nil {
-			return err
+			return found, err
 		}
 
 		outFile, err := os.Create(destPath)
 		if err != nil {
 			rc.Close()
-			return err
+			return found, err
 		}
 
 		_, err = io.Copy(outFile, rc)
 		rc.Close()
 		outFile.Close()
 		if err != nil {
+			return found, err
+		}
+	}
+
+	return found, nil
+}
+
+// resolveNuGetDeps reads the .nuspec at nupkgPath, then downloads and extracts
+// each applicable transitive dependency's DLLs into pluginsDir, recursing into
+// their dependencies. Framework/runtime meta-packages and already-visited
+// packages are skipped. A dependency with no compatible lib folder (e.g. a
+// meta-package) is not an error: its DLLs are skipped but its own dependencies
+// are still resolved.
+func (p *Packager) resolveNuGetDeps(nupkgPath, framework, pluginsDir string, excludePatterns []string, visited map[string]bool) error {
+	ns, err := parseNuspec(nupkgPath)
+	if err != nil {
+		return err
+	}
+
+	for _, dep := range ns.dependenciesForFramework(framework) {
+		lid := strings.ToLower(dep.ID)
+		if lid == "" || visited[lid] || skipNuGetDependency(dep.ID) {
+			continue
+		}
+		visited[lid] = true
+
+		version := resolveVersion(dep.Version)
+		if version == "" {
+			p.logf("  skipping dependency %s (unresolvable version %q)", dep.ID, dep.Version)
+			continue
+		}
+
+		p.logf("  resolving dependency %s@%s", dep.ID, version)
+		depPath, err := p.downloadOrCache(dep.ID, version)
+		if err != nil {
+			return fmt.Errorf("downloading dependency %s@%s: %w", dep.ID, version, err)
+		}
+
+		if err := extractDepDLLs(depPath, framework, pluginsDir, excludePatterns); err != nil {
+			return fmt.Errorf("extracting dependency %s@%s: %w", dep.ID, version, err)
+		}
+
+		if err := p.resolveNuGetDeps(depPath, framework, pluginsDir, excludePatterns, visited); err != nil {
 			return err
 		}
 	}
 
-	if !found {
-		// List available frameworks for a helpful error
-		frameworks := availableFrameworks(r)
-		return fmt.Errorf("no files found for framework %q in nupkg (available: %s)",
-			framework, strings.Join(frameworks, ", "))
+	return nil
+}
+
+// extractDepDLLs extracts a transitive dependency's DLLs, choosing the best
+// compatible lib folder for the target framework. Missing lib folders are
+// tolerated (meta-packages carry no assemblies).
+func extractDepDLLs(nupkgPath, framework, destDir string, excludePatterns []string) error {
+	r, err := zip.OpenReader(nupkgPath)
+	if err != nil {
+		return fmt.Errorf("opening nupkg: %w", err)
+	}
+	defer r.Close()
+
+	folder := bestLibFramework(r, framework)
+	if folder == "" {
+		return nil
+	}
+	_, err = extractLibFolder(r, folder, destDir, excludePatterns)
+	return err
+}
+
+// bestLibFramework picks the lib/ framework folder most compatible with the
+// target: an exact (normalized) match if present, otherwise the highest
+// netstandard version not exceeding the target. Returns "" if none qualify.
+func bestLibFramework(r *zip.ReadCloser, target string) string {
+	available := availableFrameworks(r)
+	normTarget := normalizeFramework(target)
+
+	for _, fw := range available {
+		if normalizeFramework(fw) == normTarget {
+			return fw
+		}
 	}
 
-	return nil
+	targetVer, targetIsNS := netstandardVersion(normTarget)
+	if !targetIsNS {
+		return ""
+	}
+	best := ""
+	bestVer := -1.0
+	for _, fw := range available {
+		v, ok := netstandardVersion(normalizeFramework(fw))
+		if ok && v <= targetVer && v > bestVer {
+			bestVer = v
+			best = fw
+		}
+	}
+	return best
 }
 
 func availableFrameworks(r *zip.ReadCloser) []string {

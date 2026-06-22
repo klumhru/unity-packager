@@ -24,9 +24,17 @@ type PackageSpec struct {
 	Version        string      `json:"version,omitempty"`
 	Description    string      `json:"description,omitempty"`
 	Dependencies   []string    `json:"dependencies,omitempty"`
+	// EditorOnly places extracted assemblies under an Editor/ folder instead of
+	// Plugins/, so Unity compiles them only for the editor (e.g. Roslyn analyzers
+	// / code-generation libs). Currently honored by the nuget package type.
+	EditorOnly bool `json:"editorOnly,omitempty"`
 	NuGetID        string      `json:"nugetId,omitempty"`
 	NuGetVersion   string      `json:"nugetVersion,omitempty"`
 	NuGetFramework string      `json:"nugetFramework,omitempty"`
+	// NuGetResolveDependencies, when true, recursively downloads the package's
+	// transitive NuGet dependencies and extracts their DLLs into the same
+	// Plugins/ folder. Framework/runtime meta-packages are skipped.
+	NuGetResolveDependencies bool `json:"nugetResolveDependencies,omitempty"`
 	Exclude          []string `json:"exclude,omitempty"`
 	SuppressWarnings []string `json:"suppressWarnings,omitempty"`
 }

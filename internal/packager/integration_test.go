@@ -5,6 +5,7 @@ package packager
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/klumhru/unity-packager/internal/config"
@@ -154,6 +155,91 @@ func TestIntegration_NuGet_GrpcCore(t *testing.T) {
 	// Meta files
 	if _, err := os.Stat(filepath.Join(destDir, "package.json.meta")); os.IsNotExist(err) {
 		t.Error("package.json.meta should exist")
+	}
+}
+
+func TestIntegration_NuGet_EditorOnly(t *testing.T) {
+	projectDir := t.TempDir()
+	packagesDir := filepath.Join(projectDir, "Packages")
+	os.MkdirAll(packagesDir, 0755)
+
+	p := New(projectDir, Options{Verbose: true, Clean: true, NoCache: true})
+
+	cfg := &config.Config{
+		Packages: []config.PackageSpec{
+			{
+				Name:           "com.newtonsoft.json",
+				Type:           config.NuGet,
+				NuGetID:        "Newtonsoft.Json",
+				NuGetVersion:   "13.0.3",
+				NuGetFramework: "netstandard2.0",
+				EditorOnly:     true,
+			},
+		},
+	}
+
+	if err := p.Run(cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	destDir := filepath.Join(packagesDir, "com.newtonsoft.json")
+
+	// DLLs must land under Editor/, not Plugins/.
+	if _, err := os.Stat(filepath.Join(destDir, "Editor", "Newtonsoft.Json.dll")); err != nil {
+		t.Errorf("Newtonsoft.Json.dll should be under Editor/: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "Plugins")); !os.IsNotExist(err) {
+		t.Errorf("Plugins/ should not exist when editorOnly is set")
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "Editor.meta")); os.IsNotExist(err) {
+		t.Error("Editor.meta should be generated")
+	}
+}
+
+func TestIntegration_NuGet_ResolveDependencies(t *testing.T) {
+	projectDir := t.TempDir()
+	packagesDir := filepath.Join(projectDir, "Packages")
+	os.MkdirAll(packagesDir, 0755)
+
+	p := New(projectDir, Options{Verbose: true, Clean: true, NoCache: true})
+
+	cfg := &config.Config{
+		Packages: []config.PackageSpec{
+			{
+				Name:                     "com.grpc.core",
+				Type:                     config.NuGet,
+				NuGetID:                  "Grpc.Core",
+				NuGetVersion:             "2.46.6",
+				NuGetFramework:           "netstandard2.0",
+				NuGetResolveDependencies: true,
+			},
+		},
+	}
+
+	if err := p.Run(cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	pluginsDir := filepath.Join(packagesDir, "com.grpc.core", "Plugins")
+	entries, err := os.ReadDir(pluginsDir)
+	if err != nil {
+		t.Fatalf("reading Plugins: %v", err)
+	}
+
+	// Resolution should produce multiple assemblies (the package plus its
+	// transitive deps), while Unity-provided facades like System.Memory are
+	// skipped to avoid duplicate-assembly conflicts.
+	dlls := 0
+	for _, e := range entries {
+		if strings.HasSuffix(strings.ToLower(e.Name()), ".dll") {
+			dlls++
+		}
+		if e.Name() == "System.Memory.dll" {
+			t.Error("System.Memory.dll should be skipped (Unity-provided facade)")
+		}
+	}
+	if dlls < 2 {
+		t.Errorf("expected multiple DLLs after dependency resolution, got %d", dlls)
 	}
 }
 

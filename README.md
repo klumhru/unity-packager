@@ -130,6 +130,8 @@ For NuGet packages. The tool downloads the `.nupkg`, extracts DLLs for the targe
 | `nugetId` | yes | NuGet package ID |
 | `nugetVersion` | yes | NuGet package version |
 | `nugetFramework` | no | Target framework to extract (default: `netstandard2.0`) |
+| `nugetResolveDependencies` | no | Recursively resolve transitive NuGet dependencies (default: `false`) |
+| `editorOnly` | no | Place assemblies under `Editor/` instead of `Plugins/`, so Unity compiles them for the editor only (default: `false`) |
 | `dependencies` | no | List of other package names |
 | `exclude` | no | Glob patterns to exclude |
 
@@ -141,6 +143,55 @@ Packages/com.example.nuget-lib/
 ├── Plugins/
 │   ├── Example.dll
 │   └── ...
+```
+
+#### Transitive dependency resolution
+
+By default the tool extracts only the named package's own assemblies. Set `nugetResolveDependencies: true` to also walk the package's `.nuspec` dependency graph, download each transitive dependency, and extract its DLLs into the same folder:
+
+```json
+{
+  "name": "com.grpc.core",
+  "type": "nuget",
+  "nugetId": "Grpc.Core",
+  "nugetVersion": "2.46.6",
+  "nugetFramework": "netstandard2.0",
+  "nugetResolveDependencies": true
+}
+```
+
+Resolution behavior:
+
+- **Framework matching** — picks the dependency group matching `nugetFramework`, falling back to the nearest-compatible lower `netstandard` version. The same logic chooses each dependency's `lib/` folder.
+- **Versions** — dependency version ranges resolve to the lower bound (NuGet's default "lowest applicable" behavior). Floating (`*`) and open-ended lower bounds are skipped.
+- **Deduplication** — each package id is resolved once, even within a diamond dependency graph.
+- **Skipped packages** — framework/runtime meta-packages (`NETStandard.Library`, `Microsoft.NETCore.*`, etc.) and Unity-provided `System.*` facades (`System.Memory`, `System.Buffers`, `System.Runtime.CompilerServices.Unsafe`, `System.Numerics.Vectors`, `System.Threading.Tasks.Extensions`, `System.ValueTuple`) are skipped to avoid duplicate-assembly conflicts in the editor. Meta-packages with no `lib/` assemblies are tolerated — their own dependencies are still resolved.
+
+#### Editor-only assemblies
+
+Some libraries — Roslyn analyzers, source generators, code-generation tooling — should run only in the editor, never ship in a player build. Set `editorOnly: true` to route the extracted DLLs (including any resolved transitive dependencies) into an `Editor/` special folder instead of `Plugins/`:
+
+```json
+{
+  "name": "com.microsoft.codeanalysis.csharp",
+  "type": "nuget",
+  "nugetId": "Microsoft.CodeAnalysis.CSharp",
+  "nugetVersion": "4.8.0",
+  "nugetFramework": "netstandard2.0",
+  "nugetResolveDependencies": true,
+  "editorOnly": true
+}
+```
+
+Output structure:
+
+```
+Packages/com.microsoft.codeanalysis.csharp/
+├── package.json
+├── Editor/
+│   ├── Microsoft.CodeAnalysis.CSharp.dll
+│   ├── Microsoft.CodeAnalysis.dll
+│   └── ... (resolved dependencies)
 ```
 
 ### `archive`
@@ -228,6 +279,7 @@ Packages/com.example.sdk/
 - **Download caching** — upstream packages are cached in `~/.cache/unity-packager/` to avoid re-downloading on subsequent runs
 - **File exclusion** — glob patterns with `**` support for filtering out tests, docs, or other unwanted files
 - **Asmdef generation** — `git-raw` packages get an `.asmdef` with the root namespace inferred from the C# source files, and references populated from the `dependencies` list
+- **NuGet dependency resolution** — optionally walks a package's `.nuspec` graph to pull transitive dependencies, skipping framework/runtime meta-packages and Unity-provided `System.*` facades; assemblies can be routed to `Editor/` for editor-only libs like Roslyn
 - **Warning suppression** — per-package `csc.rsp` generation to suppress specific C# compiler warnings (see below)
 
 ## Suppressing Compiler Warnings

@@ -24,6 +24,7 @@
       "nugetId": "Grpc.Core",
       "nugetVersion": "2.46.6",
       "nugetFramework": "netstandard2.0",
+      "nugetResolveDependencies": true,
       "dependencies": ["com.google.protobuf"]
     },
     {
